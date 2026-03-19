@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動除法遊戲 - 完整旗艦版</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", Arial, sans-serif; background-color: #f4f7f6; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        
+        /* 教師出題區 */
+        .teacher-panel { background: #333; color: white; padding: 10px 20px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .teacher-panel input[type="number"] { width: 60px; padding: 5px; font-size: 16px; text-align: center; border-radius: 4px; border: 1px solid #ccc; }
+        .teacher-panel button { background: #F5A623; color: white; padding: 6px 15px; font-size: 14px; cursor: pointer; border: none; border-radius: 4px; }
+        .teacher-panel button:hover { background: #d48a1b; }
+        .mode-selector { display: flex; gap: 10px; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 4px;}
+
+        .container { width: 1000px; background: white; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); overflow: hidden; display: flex; flex-direction: column; }
+        
+        /* 一、題目區 */
+        .question-area { background: #4A90E2; color: white; padding: 20px; text-align: center; transition: background 0.3s;}
+        .question-area.mode-quotative { background: #9013FE; }
+        .question-area h1 { margin: 0; font-size: 42px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        
+        .answer-input { width: 90px; height: 50px; font-size: 32px; text-align: center; border-radius: 8px; border: 3px solid #FFF; background: rgba(255,255,255,0.2); color: white; font-weight: bold; }
+        .answer-input::placeholder { color: rgba(255,255,255,0.6); font-size: 20px;}
+        .answer-input:focus { outline: none; background: rgba(255,255,255,0.9); color: #333; }
+        .remainder-dots { font-size: 36px; font-weight: bold; margin: 0 5px; }
+        .question-area p { margin: 10px 0 0 0; font-size: 18px; }
+        
+        /* 中間主要版面 */
+        .main-area { display: flex; height: 450px; }
+        
+        /* 二、積木區 */
+        .block-area { flex: 1.2; padding: 15px; border-right: 2px dashed #ccc; background: #FAFAFA; overflow-y: auto; }
+        .block-area h3 { margin-top: 0; color: #333; }
+        .blocks-container { min-height: 200px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 8px; padding: 5px; }
+        
+        /* 積木樣式 (包含 50) */
+        .block { cursor: grab; display: flex; justify-content: center; align-items: center; font-weight: bold; color: white; user-select: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; transition: transform 0.1s; }
+        .block:active { cursor: grabbing; transform: scale(0.95); }
+        .block-1000 { width: 70px; height: 70px; background: #D0021B; border-radius: 6px; font-size: 18px;} 
+        .block-100  { width: 50px; height: 50px; background: #9013FE; border-radius: 6px; } 
+        .block-50   { width: 45px; height: 35px; background: #00BFFF; border-radius: 5px; } 
+        .block-10   { width: 40px; height: 25px; background: #F5A623; border-radius: 4px; } 
+        .block-1    { width: 25px; height: 25px; background: #7ED321; border-radius: 4px; } 
+        
+        /* 三、分配區 */
+        .drop-area { flex: 2; padding: 15px; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
+        .drop-area h3 { margin-top: 0; color: #333; display: flex; justify-content: space-between; align-items: center;}
+        
+        .btn-add-group { background: #7ED321; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; display: none; }
+        .btn-add-group:hover { background: #68b01b; }
+
+        .groups-container { display: flex; justify-content: flex-start; flex-wrap: wrap; flex-grow: 1; gap: 10px; }
+        .group { flex: 1 1 calc(20% - 10px); min-width: 120px; min-height: 120px; background: #FFF9E6; border: 2px dashed #F5A623; border-radius: 8px; padding: 10px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 5px; }
+        .group.hover { background: #FFF0C2; border-color: #D0021B; }
+        
+        /* 四、操作區 */
+        .control-area { padding: 15px; background: #EEE; display: flex; justify-content: center; gap: 20px; }
+        button.action-btn { padding: 10px 25px; font-size: 18px; cursor: pointer; border: none; border-radius: 6px; font-weight: bold; transition: 0.2s; }
+        .btn-check { background: #4A90E2; color: white; }
+        .btn-check:hover { background: #357ABD; }
+        .btn-reset { background: #999; color: white; }
+        .btn-reset:hover { background: #777; }
+        
+        #message { text-align: center; font-size: 18px; font-weight: bold; margin-top: 10px; height: 25px; }
+    </style>
+</head>
+<body>
+
+<div class="teacher-panel">
+    <span>👨‍🏫 教師出題：</span>
+    <input type="number" id="input-dividend" value="175" min="1" max="9999" title="被除數"> ÷ 
+    <input type="number" id="input-divisor" value="5" min="1" max="10" title="除數">
+    
+    <div class="mode-selector">
+        <label><input type="radio" name="math-mode" value="partitive" checked> 平均分</label>
+        <label><input type="radio" name="math-mode" value="quotative"> 包含分</label>
+    </div>
+
+    <button onclick="setCustomProblem()">確認出題</button>
+</div>
+
+<div class="container">
+    <div class="question-area" id="ui-question-area">
+        <h1>
+            <span id="display-dividend">175</span> ÷ 
+            <span id="display-divisor">5</span> = 
+            <input type="number" id="student-answer" class="answer-input" placeholder="商">
+            <span class="remainder-dots">...</span>
+            <input type="number" id="student-remainder" class="answer-input" placeholder="餘數">
+        </h1>
+        <p id="instruction-text">請將積木平分到組別裡，點擊大積木可以拆解喔！</p>
+    </div>
+
+    <div class="main-area">
+        <div class="block-area">
+            <h3>積木區 (剩餘區)</h3>
+            <div class="blocks-container" id="source-container"></div>
+        </div>
+        <div class="drop-area">
+            <h3>分配區 <button class="btn-add-group" id="btn-add-group" onclick="addGroup()">➕ 新增一組</button></h3>
+            <div class="groups-container" id="groups-container"></div>
+        </div>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="control-area">
+        <button class="action-btn btn-check" onclick="checkAnswer()">檢查答案</button>
+        <button class="action-btn btn-reset" onclick="initGame()">重新操作</button>
+    </div>
+</div>
+
+<script>
+    let currentDividend = 175;
+    let currentDivisor = 5;
+    let currentMode = 'partitive'; 
+    let blockIdCounter = 0;
+
+    const sourceContainer = document.getElementById('source-container');
+    const groupsContainer = document.getElementById('groups-container');
+    const messageEl = document.getElementById('message');
+    const instructionText = document.getElementById('instruction-text');
+    const questionAreaUI = document.getElementById('ui-question-area');
+    const addGroupBtn = document.getElementById('btn-add-group');
+
+    function setCustomProblem() {
+        const divInput = parseInt(document.getElementById('input-dividend').value);
+        const divisorInput = parseInt(document.getElementById('input-divisor').value);
+        const modeInput = document.querySelector('input[name="math-mode"]:checked').value;
+
+        if (isNaN(divInput) || isNaN(divisorInput) || divInput < 1 || divInput > 9999 || divisorInput < 1 || divisorInput > 99) {
+            alert("請輸入有效的數字！"); return;
+        }
+        currentDividend = divInput; 
+        currentDivisor = divisorInput;
+        currentMode = modeInput;
+
+        document.getElementById('display-dividend').innerText = currentDividend;
+        document.getElementById('display-divisor').innerText = currentDivisor;
+        
+        initGame();
+    }
+
+    function initGame() {
+        messageEl.innerText = '';
+        sourceContainer.innerHTML = '';
+        groupsContainer.innerHTML = '';
+        document.getElementById('student-answer').value = '';
+        document.getElementById('student-remainder').value = '';
+
+        if (currentMode === 'partitive') {
+            questionAreaUI.classList.remove('mode-quotative');
+            instructionText.innerText = `這題是「平均分」：請將積木平分到 ${currentDivisor} 個組別裡。`;
+            addGroupBtn.style.display = 'none';
+            for(let i = 0; i < currentDivisor; i++) addGroup();
+        } else {
+            questionAreaUI.classList.add('mode-quotative');
+            instructionText.innerText = `這題是「包含分」：請每 ${currentDivisor} 個積木包成一組。你需要自己新增組別喔！`;
+            addGroupBtn.style.display = 'block';
+            addGroup(); 
+        }
+
+        // 支援 50 的積木生成邏輯
+        const thousands = Math.floor(currentDividend / 1000);
+        const hundreds = Math.floor((currentDividend % 1000) / 100);
+        const fifties = Math.floor((currentDividend % 100) / 50);
+        const tens = Math.floor((currentDividend % 50) / 10);
+        const ones = currentDividend % 10;
+
+        for(let i = 0; i < thousands; i++) createBlock(1000, sourceContainer);
+        for(let i = 0; i < hundreds; i++) createBlock(100, sourceContainer);
+        for(let i = 0; i < fifties; i++) createBlock(50, sourceContainer);
+        for(let i = 0; i < tens; i++) createBlock(10, sourceContainer);
+        for(let i = 0; i < ones; i++) createBlock(1, sourceContainer);
+
+        setupDragAndDrop();
+    }
+
+    function addGroup() {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'group';
+        groupsContainer.appendChild(groupDiv);
+        setupDragAndDrop();
+    }
+
+    function createBlock(type, parent) {
+        const block = document.createElement('div');
+        block.id = 'block-' + (blockIdCounter++);
+        block.classList.add('block', `block-${type}`);
+        block.innerText = type;
+        block.draggable = true;
+        
+        if (type > 1) {
+            block.onclick = () => splitBlock(block, type);
+        }
+
+        block.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', block.id);
+            setTimeout(() => block.style.opacity = '0.5', 0);
+        });
+        block.addEventListener('dragend', () => block.style.opacity = '1');
+        parent.appendChild(block);
+    }
+
+    function splitBlock(blockEl, type) {
+        const parent = blockEl.parentElement;
+        blockEl.remove();
+        
+        let newType;
+        let count;
+        
+        if (type === 1000) { newType = 100; count = 10; }
+        else if (type === 100) { newType = 50; count = 2; }
+        else if (type === 50) { newType = 10; count = 5; }
+        else if (type === 10) { newType = 1; count = 10; }
+
+        for (let i = 0; i < count; i++) createBlock(newType, parent);
+        setupDragAndDrop();
+        showMessage(`成功將 1 個 ${type} 拆解成 ${count} 個 ${newType}！`, true);
+        messageEl.style.color = currentMode === 'quotative' ? '#9013FE' : '#4A90E2';
+    }
+
+    function setupDragAndDrop() {
+        const dropZones = [sourceContainer, ...document.querySelectorAll('.group')];
+        dropZones.forEach(zone => {
+            zone.ondragover = (e) => { e.preventDefault(); if(zone.classList.contains('group')) zone.classList.add('hover'); };
+            zone.ondragleave = () => { if(zone.classList.contains('group')) zone.classList.remove('hover'); };
+            zone.ondrop = (e) => {
+                e.preventDefault();
+                if(zone.classList.contains('group')) zone.classList.remove('hover');
+                const blockId = e.dataTransfer.getData('text/plain');
+                const block = document.getElementById(blockId);
+                if(block && (e.target.classList.contains('group') || e.target.id === 'source-container')) {
+                    e.target.appendChild(block);
+                } else if (block && e.target.parentElement.classList.contains('group')) {
+                    e.target.parentElement.appendChild(block);
+                }
+            };
+        });
+    }
+
+    function getContainerValue(container) {
+        return Array.from(container.children).reduce((sum, block) => {
+            if (block.classList.contains('block-1000')) return sum + 1000;
+            if (block.classList.contains('block-100')) return sum + 100;
+            if (block.classList.contains('block-50')) return sum + 50; 
+            if (block.classList.contains('block-10')) return sum + 10;
+            return sum + 1;
+        }, 0);
+    }
+
+    function checkAnswer() {
+        const studentAnsStr = document.getElementById('student-answer').value;
+        const studentRemStr = document.getElementById('student-remainder').value;
+        const studentAns = parseInt(studentAnsStr);
+        const studentRem = studentRemStr === '' ? 0 : parseInt(studentRemStr);
+
+        if (isNaN(studentAns)) { showMessage('請記得輸入商數喔！', false); return; }
+
+        const allGroups = document.querySelectorAll('.group');
+        const activeGroups = Array.from(allGroups).filter(g => g.children.length > 0);
+        
+        if (activeGroups.length === 0) { showMessage('分配區好像還沒有放積木喔！', false); return; }
+
+        const leftoverValue = getContainerValue(sourceContainer);
+
+        if (currentMode === 'partitive') {
+            let groupValues = activeGroups.map(g => getContainerValue(g));
+            const firstValue = groupValues[0];
+            const allEqual = groupValues.every(v => v === firstValue);
+
+            if (activeGroups.length !== currentDivisor) { showMessage(`這題是平分給 ${currentDivisor} 組，請確認每組都有放積木！`, false); return; }
+            if (!allEqual) { showMessage('每一組的積木總數不一樣多，請檢查一下！', false); return; }
+            if (leftoverValue >= currentDivisor) { showMessage('積木區剩下的積木還可以再平分喔！', false); return; }
+            if (studentAns !== firstValue) { showMessage(`積木分對了！但你輸入的商 (${studentAns}) 跟每組總數 (${firstValue}) 不一樣！`, false); return; }
+            
+            successMessage(firstValue, leftoverValue, '每組分到');
+
+        } else {
+            const allMatchDivisor = activeGroups.every(g => getContainerValue(g) === currentDivisor);
+            
+            if (!allMatchDivisor) { showMessage(`這題是包含分，每一組必須「剛好是 ${currentDivisor}」喔！`, false); return; }
+            if (leftoverValue >= currentDivisor) { showMessage(`積木區剩下的積木還可以再綁成一組 ${currentDivisor} 喔！`, false); return; }
+            if (studentAns !== activeGroups.length) { showMessage(`你成功包出了 ${activeGroups.length} 組，但你輸入的商是 ${studentAns}，不對喔！`, false); return; }
+            
+            successMessage(activeGroups.length, leftoverValue, '共包成了');
+        }
+
+        function successMessage(ans, rem, text) {
+            if (studentRem !== rem) {
+                showMessage(`積木分對了！但你輸入的餘數 (${studentRem}) 跟剩下的數量 (${rem}) 不一樣！`, false); return;
+            }
+            if (rem === 0) {
+                showMessage(`✓ 太棒了！${text} ${ans}，沒有剩下。⭐`, true);
+            } else {
+                showMessage(`✓ 完美！${text} ${ans}，剩下 ${rem}。⭐`, true);
+            }
+        }
+    }
+
+    function showMessage(text, isSuccess) {
+        messageEl.innerText = text;
+        messageEl.style.color = isSuccess ? '#7ED321' : '#D0021B';
+    }
+
+    initGame();
+</script>
+</body>
+</html>
